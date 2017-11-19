@@ -1,0 +1,287 @@
+<html>
+	<head>
+		<title>My first three.js app</title>
+		<style>
+
+ 			body {
+				background-color: #fff;
+				color: #111;
+				margin: 0px;
+				overflow: hidden;
+				font-family: Monospace;
+				font-size: 13px;
+			}
+            
+            
+		</style>
+		
+		
+		<script src="js/three.js"></script>
+<!--
+		<script src="js/FBXLoader.js"></script>
+		<script src="js/inflate.min.js"></script>
+		
+-->
+		<script src="js/controls/OrbitControls.js"></script>
+
+<!--
+		<script src="js/curves/NURBSCurve.js"></script>
+		<script src="js/curves/NURBSUtils.js"></script>
+		<script src="js/loaders/FBXLoader.js"></script>
+		<script src="js/loaders/3MFLoader.js"></script>
+-->
+
+
+		<script src="js/loaders/GLTFLoader.js"></script>
+
+		
+						
+<!--		<script src="js/libs/jszip.min.js"></script>		-->
+						
+
+<!--		<script src="js/Detector.js"></script>		-->
+		
+		
+		<script type="x-shader/x-vertex" id="vertexShader">
+			varying vec3 vWorldPosition;
+			void main() {
+				vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+				vWorldPosition = worldPosition.xyz;
+				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+			}
+		</script>
+		
+		<script type="x-shader/x-fragment" id="fragmentShader">
+			uniform vec3 topColor;
+			uniform vec3 bottomColor;
+			uniform float offset;
+			uniform float exponent;
+			varying vec3 vWorldPosition;
+			void main() {
+				float h = normalize( vWorldPosition + offset ).y;
+				gl_FragColor = vec4( mix( bottomColor, topColor, max( pow( max( h , 0.0), exponent ), 0.0 ) ), 1.0 );
+			}
+		</script>						
+		
+	</head>
+	<body>
+	
+    <div id="container"></div>
+		
+		
+		<script>
+
+            
+    var camera, scene, renderer, dirLight, dirLightHeper, hemiLight, hemiLightHelper;
+    var mixers = [];
+            var obj;
+            
+            
+    init();        
+            
+    function init() {
+        
+        console.log('init');
+            
+        var container = document.getElementById( 'container' );
+        camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 1, 5000 );
+        camera.position.set( 0, -0.7, 2 );
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color().setHSL( 0.6, 0, 1 );
+        scene.fog = new THREE.Fog( scene.background, 1, 5000 );
+        
+        
+        
+        scene = new THREE.Scene();
+
+
+        //----------------------
+        
+        scene.background = new THREE.Color().setHSL( 0.6, 0, 1 );
+        
+        scene.fog = new THREE.Fog( scene.background, 1, 5000 );
+        // LIGHTS
+        hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 0.6 );
+        hemiLight.color.setHSL( 0.6, 1, 0.6 );
+        hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
+        hemiLight.position.set( 0, 50, 0 );
+        scene.add( hemiLight );
+        hemiLightHelper = new THREE.HemisphereLightHelper( hemiLight, 10 );
+        scene.add( hemiLightHelper );
+        //
+        dirLight = new THREE.DirectionalLight( 0xffffff, 1 );
+        dirLight.color.setHSL( 0.1, 1, 0.95 );
+        dirLight.position.set( -1, 1.75, 1 );
+        dirLight.position.multiplyScalar( 30 );
+        scene.add( dirLight );
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        var d = 50;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        dirLight.shadow.camera.far = 3500;
+        dirLight.shadow.bias = -0.0001;
+        dirLightHeper = new THREE.DirectionalLightHelper( dirLight, 10 ) 
+        scene.add( dirLightHeper );
+        // GROUND
+        var groundGeo = new THREE.PlaneBufferGeometry( 10000, 10000 );
+        var groundMat = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x050505 } );
+        groundMat.color.setHSL( 0.095, 1, 0.75 );
+        var ground = new THREE.Mesh( groundGeo, groundMat );
+        ground.rotation.x = -Math.PI/2;
+        ground.position.y = -33;
+        scene.add( ground );
+        ground.receiveShadow = true;
+        
+        // SKYDOME
+        var vertexShader = document.getElementById( 'vertexShader' ).textContent;
+        var fragmentShader = document.getElementById( 'fragmentShader' ).textContent;
+        var uniforms = {
+            topColor:    { value: new THREE.Color( 0x0077ff ) },
+            bottomColor: { value: new THREE.Color( 0xffffff ) },
+            offset:      { value: 33 },
+            exponent:    { value: 0.6 }
+        };
+        uniforms.topColor.value.copy( hemiLight.color );
+        scene.fog.color.copy( uniforms.bottomColor.value );
+        var skyGeo = new THREE.SphereGeometry( 4000, 32, 15 );
+        var skyMat = new THREE.ShaderMaterial( { vertexShader: vertexShader, fragmentShader: fragmentShader, uniforms: uniforms, side: THREE.BackSide } );
+        var sky = new THREE.Mesh( skyGeo, skyMat );
+        scene.add( sky );        
+        
+        
+        //---------------------------------------------------------------
+        // grid
+/*        var gridHelper = new THREE.GridHelper( 28, 28, 0x303030, 0x303030 );
+        gridHelper.position.set( 0, - 0.04, 0 );
+        scene.add( gridHelper );  */      
+
+
+        var manager = new THREE.LoadingManager();
+        manager.onStart = function ( url, itemsLoaded, itemsTotal ) {
+
+            console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+
+        };
+
+        manager.onLoad = function ( ) {
+
+            console.log( 'Loading complete!');
+
+        };
+
+
+        manager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
+
+            console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+
+        };
+
+        manager.onError = function ( url ) {
+
+            console.log( 'There was an error loading ' + url );
+
+        };
+    
+        
+        var loader = new THREE.GLTFLoader(manager);
+
+        
+//        loader.load( 'files/catwoman2.glb', function( geometry) {           
+//            obj = geometry.scene;
+//            scene.add(obj)
+//        } );
+//        
+        loader.load( 'files/yea.glb', function( geometry) {
+            var obj = geometry.scene;
+            obj.castShadow = true;
+            obj.receiveShadow = true;         
+            
+            scene.add(obj)
+        } );
+
+        loader.load( 'files/SYLWESTER.glb', function( geometry) {
+            var obj = geometry.scene;
+            obj.castShadow = true;
+            obj.receiveShadow = true;         
+            
+            scene.add(obj)
+        } );        
+        
+//        loader.load( 'files/bee.glb', function( geometry) {
+//            var obj = geometry.scene;
+//            
+//            obj.castShadow = true;
+//            obj.receiveShadow = true;        
+//            
+//            scene.add(obj)
+//        } );
+                
+        
+        // RENDERER
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        
+        container.appendChild( renderer.domElement );
+        
+        renderer.gammaInput = true;
+        renderer.gammaOutput = true;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.renderReverseSided = false;      
+                
+
+        
+        animate();        
+
+
+        //window.addEventListener( 'resize', onWindowResize, false );
+        document.addEventListener( 'keydown', onKeyDown, false );
+        
+        var deltaY = camera.position.z;
+        document.addEventListener( 'mousewheel', function(e) {
+            //console.log('scroll',e.deltaY);
+            var nz = e.deltaY/300
+            deltaY += nz;
+            console.log(deltaY);
+            camera.position.set( 0, 0, deltaY);
+            
+        }, false );        
+        
+         
+        
+    }
+            
+    function animate() {
+        requestAnimationFrame( animate );
+        scene.rotation.y += 0.1;        
+        render();
+    }
+    function render() {
+        renderer.render( scene, camera );
+    }            
+            
+        
+            
+    function onKeyDown ( event ) {
+        switch ( event.keyCode ) {
+            case 72: // h
+            hemiLight.visible = !hemiLight.visible;
+            hemiLightHelper.visible = !hemiLightHelper.visible;
+            break;
+            case 68: // d
+            dirLight.visible = !dirLight.visible;
+            dirLightHeper.visible = !dirLightHeper.visible;
+            break;
+        }
+    }            
+            
+            
+</script>
+
+
+	</body>
+</html>
