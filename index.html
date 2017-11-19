@@ -238,7 +238,7 @@
         animate();        
 
 
-        //window.addEventListener( 'resize', onWindowResize, false );
+        window.addEventListener( 'resize', onWindowResize, false );
         document.addEventListener( 'keydown', onKeyDown, false );
         
         var deltaY = camera.position.z;
@@ -277,6 +277,12 @@
             dirLightHeper.visible = !dirLightHeper.visible;
             break;
         }
+    } 
+            
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize( window.innerWidth, window.innerHeight );
     }            
             
             
